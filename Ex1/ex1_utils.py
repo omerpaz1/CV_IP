@@ -13,8 +13,7 @@ import cv2
 import matplotlib.pyplot as plt
 from typing import List
 
-LOAD_GRAY_SCALE = 1
-LOAD_RGB = 2
+
 
 def myID() -> np.int:
     """
