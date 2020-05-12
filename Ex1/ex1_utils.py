@@ -21,7 +21,8 @@ def myID() -> np.int:
     :return: int
     """
     return 311326490
-
+LOAD_GRAY_SCALE = 1
+LOAD_RGB = 2
 
 def imReadAndConvert(filename:str, representation:int)->np.ndarray:
     if representation == LOAD_GRAY_SCALE:
