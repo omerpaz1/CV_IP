@@ -26,7 +26,6 @@ def  conv1D(inSignal:np.ndarray,kernel1:np.ndarray)->np.ndarray:
     pad_size = len(kernel1)-1
     
     padded_signal = np.pad(inSignal, (pad_size, pad_size), 'constant', constant_values=0)
-    print(padded_signal)
     new_signal = np.array([]).astype('int')
     # Apply kernel to each pixel
     for i in range(len(inSignal)+len(kernel1)-1):
@@ -44,12 +43,23 @@ def conv2D(inImage:np.ndarray,kernel2:np.ndarray)->np.ndarray:
     :param  kernel2:  A  kernel
     :return:  The  convolved  image 
     """
-    kernel2 = np.flip(kernel2)
-    padded_image = np.pad(inImage, (kernel2.shape[0] // 2, kernel2.shape[1] // 2), 'edge')
-    new_image = np.ndarray(inImage.shape)
-    for i in range(0, new_image.shape[0]):
-        for j in range(0, new_image.shape[1]):
-            new_image[i, j] = np.multiply(padded_image[i:i + kernel2.shape[0], j:j + kernel2.shape[1]], kernel2).sum()
+    img_h,img_w = inImage.shape[:2]
+    ker_h,ker_w = kernel2.shape[:2]
+
+    if ker_w == ker_h:
+        pan_length = ker_h // 2
+        padded_image = cv2.copyMakeBorder(inImage,pan_length,pan_length,pan_length,pan_length,cv2.BORDER_REPLICATE)
+    elif ker_w > ker_h:
+        pan_length = ker_w  // 2
+        padded_image = cv2.copyMakeBorder(inImage,0,0,pan_length,pan_length,cv2.BORDER_REPLICATE)
+    else:
+        pan_length = ker_h // 2
+        padded_image = cv2.copyMakeBorder(inImage,pan_length,pan_length,0,0,cv2.BORDER_REPLICATE)
+
+    new_image = np.zeros((img_h,img_w))
+    for i in range(img_h):
+        for j in range(img_w):
+            new_image[i, j] = np.sum(np.multiply(padded_image[i:i + ker_h, j:j + ker_w],kernel2)).round()
     return new_image
 
 
@@ -60,14 +70,14 @@ def  convDerivative(inImage:np.ndarray)  ->  (np.ndarray,np.ndarray,np.ndarray,n
     :return:  (directions,  magnitude,x_der,y_der) 
     """
 
-    k_x = np.array([1,0,-1])
+    k_x = np.array([[1,0,-1]])
     k_y = np.reshape(k_x,(3,1))
     der_x = conv2D(inImage,k_x)
     der_y = conv2D(inImage,k_y)
 
     directions = np.arctan2(der_y,der_x)
-    magnitude = np.sqrt(der_x**2 + der_y**2)
-    return (directions,magnitude,der_x,der_y)
+    magnitude = np.hypot(der_x, der_y)
+    return (der_x,der_y,magnitude,directions)
 
 def blurImage1(in_image: np.ndarray, kernel_size: np.ndarray) -> np.ndarray:
     """
@@ -76,6 +86,14 @@ def blurImage1(in_image: np.ndarray, kernel_size: np.ndarray) -> np.ndarray:
     :param kernelSize: Kernel size
     :return: The Blurred image
     """
+    # size = int(kernel_size) // 2
+    # print(size)
+    # x, y = np.mgrid[-size:size+1, -size:size+1]
+    # sigma = 0.3*((size-1)*0.5 - 1) + 0.8 
+    # normal = 1 / (2.0 * np.pi * sigma**2)
+    # g =  np.exp(-((x**2 + y**2) / (2.0*sigma**2))) * normal
+    return "blurImage1 - Not implemented"
+
 def  blurImage2(in_image:np.ndarray,kernel_size:np.ndarray)->np.ndarray: 
     """
     Blur  an  image  using  a  Gaussian  kernel  using  OpenCV  built-in  functions
@@ -83,9 +101,13 @@ def  blurImage2(in_image:np.ndarray,kernel_size:np.ndarray)->np.ndarray:
     :param  kernelSize:  Kernel  size
     :return:  The  Blurred  image 
     """
-    kernel_x = cv2.getGaussianKernel(kernel_size,0)
-    kernel_y = cv2.getGaussianKernel(kernel_size,0)
+    i = kernel_size.shape[0]
+    j = kernel_size.shape[1]
+    kernel_x = cv2.getGaussianKernel(i,1)
+    kernel_y = cv2.getGaussianKernel(j,1)
     k = np.dot(kernel_x,kernel_y.T)
+    plt.imshow(k)
+    plt.show()
     return cv2.filter2D(in_image,-1,k)
 
 def  edgeDetectionSobel(img:  np.ndarray,  thresh:  float  =  0.7)-> (np.ndarray, np.ndarray):
@@ -95,16 +117,16 @@ def  edgeDetectionSobel(img:  np.ndarray,  thresh:  float  =  0.7)-> (np.ndarray
     :param  thresh:  The  minimum  threshold  for  the  edge  response
     :return:  opencv  solution,  my  implementation
     """
-    ker_Sobol_x = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
-    ker_Sobol_y = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
+    ker_Sobol_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+    ker_Sobol_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
 
     magnitude = np.sqrt(conv2D(img,ker_Sobol_x)**2 + conv2D(img,ker_Sobol_y)**2)
     magnitude = magnitude.astype(np.float) / 255
-    magnitude[magnitude > thresh] = 1
+    magnitude[magnitude > thresh] = 1   
     magnitude[magnitude < thresh] = 0
 
     # sobol algorigtem:
-    magnitude_sobel = cv2.magnitude(cv2.Sobel(img,cv2.CV_64F,0,1,thresh),cv2.Sobel(img,cv2.CV_64F,1,0,thresh))
+    magnitude_sobel = cv2.magnitude(cv2.Sobel(img,cv2.CV_64F,1,0,ksize=3),cv2.Sobel(img,cv2.CV_64F,0,1,ksize=3))
     magnitude_sobel = magnitude_sobel / 255
     magnitude_sobel[magnitude_sobel > thresh] = 1
     magnitude_sobel[magnitude_sobel < thresh] = 0
@@ -126,11 +148,10 @@ def  edgeDetectionZeroCrossingSimple(img:np.ndarray)->(np.ndarray):
     Detecting  edges  using  the  "ZeroCrossingLOG"  method
     :param  I:  Input  image
     :return:  :return:  Edge  matrix """
-    imga = cv2.GaussianBlur(img,(5,5),0)
     ker_lap = np.array([[0,1,0],[1,-4,1],[0,1,0]])
-    LOG = conv2D(imga, ker_lap)
-    minLoG = cv2.morphologyEx(LOG, cv2.MORPH_ERODE, np.ones((3,3)))
-    maxLoG = cv2.morphologyEx(LOG, cv2.MORPH_DILATE, np.ones((3,3)))
+    LOG = conv2D(img, ker_lap)
+    minLoG = cv2.morphologyEx(LOG, cv2.MORPH_GRADIENT, np.ones((5,5)))
+    maxLoG = cv2.morphologyEx(LOG, cv2.MORPH_GRADIENT, np.ones((5,5)))
     zeroCross = np.logical_or(np.logical_and(minLoG < 0,  LOG > 0), np.logical_and(maxLoG > 0, LOG < 0)).astype('int')
     return zeroCross
 
@@ -144,16 +165,16 @@ def  edgeDetectionCanny(img:  np.ndarray,  thrs_1:  float,  thrs_2:  float)-> (n
     :param  thrs_2:  T2
     :return:  opencv  solution,  my  implementation 
     """
-    Kx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)
-    Ky = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], np.float32)
+    ker_Sobol_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)
+    ker_Sobol_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], np.float32)
     
-    Ix = conv2D(img, Kx)
-    Iy = conv2D(img, Ky)
+    der_x = conv2D(img, ker_Sobol_x)
+    der_y = conv2D(img, ker_Sobol_y)
     
-    G = np.hypot(Ix, Iy)
-    G = G / G.max() * 255
-    theta = np.arctan2(Iy, Ix)
-    img_non_max = non_max_suppression(G,theta)
+    magnitude = np.hypot(der_x, der_y)
+    magnitude = magnitude / magnitude.max() * 255
+    theta = np.arctan2(der_y, der_x)
+    img_non_max = non_max_suppression(magnitude,theta)
     res, weak, strong = threshold(img_non_max,thrs_1,thrs_2)
     ans = hysteresis(res, weak, strong)
     return ans
@@ -243,3 +264,7 @@ def  houghCircle(img:np.ndarray,min_radius:float,max_radius:float)->list:
     :param  maxRadius:  Maximum  circle  radius
     :return: A list containing the detected circles, [(x,y,radius),(x,y,radius),...]
     """
+    edges = cv2.Canny(img, 20, 100)
+    points = np.array([p[0] for p in edgeDetectionZeroCrossingLOG(edges)])
+    image = cv2.circle(Orignal_img, (100,100), 100, (20, 30, 50), 2)
+    return points
