@@ -5,7 +5,7 @@ import cv2
 
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
-
+from collections import defaultdict
 
 def myID() -> np.int:
     """
@@ -79,35 +79,34 @@ def  convDerivative(inImage:np.ndarray)  ->  (np.ndarray,np.ndarray,np.ndarray,n
     magnitude = np.hypot(der_x, der_y)
     return (der_x,der_y,magnitude,directions)
 
-def blurImage1(in_image: np.ndarray, kernel_size: np.ndarray) -> np.ndarray:
+def blurImage1(in_image: np.ndarray, kernel_size: int) -> np.ndarray:
     """
     Blur an image using a Gaussian kernel
     :param inImage: Input image
     :param kernelSize: Kernel size
     :return: The Blurred image
     """
-    # size = int(kernel_size) // 2
-    # print(size)
-    # x, y = np.mgrid[-size:size+1, -size:size+1]
-    # sigma = 0.3*((size-1)*0.5 - 1) + 0.8 
-    # normal = 1 / (2.0 * np.pi * sigma**2)
-    # g =  np.exp(-((x**2 + y**2) / (2.0*sigma**2))) * normal
-    return "blurImage1 - Not implemented"
+    kernel = gaussian_kernel(kernel_size)
+    return conv2D(in_image,kernel)
 
-def  blurImage2(in_image:np.ndarray,kernel_size:np.ndarray)->np.ndarray: 
+def gaussian_kernel(size, sigma=1):
+    size = int(size) // 2
+    x, y = np.mgrid[-size:size+1, -size:size+1]
+    normal = 1 / (2.0 * np.pi * sigma**2)
+    guass_kernel =  np.exp(-((x**2 + y**2) / (2.0*sigma**2))) * normal
+    return guass_kernel
+
+
+def  blurImage2(in_image:np.ndarray,kernel_size:int)->np.ndarray: 
     """
     Blur  an  image  using  a  Gaussian  kernel  using  OpenCV  built-in  functions
     :param  inImage:  Input  image
     :param  kernelSize:  Kernel  size
     :return:  The  Blurred  image 
     """
-    i = kernel_size.shape[0]
-    j = kernel_size.shape[1]
-    kernel_x = cv2.getGaussianKernel(i,1)
-    kernel_y = cv2.getGaussianKernel(j,1)
+    kernel_x = cv2.getGaussianKernel(kernel_size,1)
+    kernel_y = cv2.getGaussianKernel(kernel_size,1)
     k = np.dot(kernel_x,kernel_y.T)
-    plt.imshow(k)
-    plt.show()
     return cv2.filter2D(in_image,-1,k)
 
 def  edgeDetectionSobel(img:  np.ndarray,  thresh:  float  =  0.7)-> (np.ndarray, np.ndarray):
@@ -120,7 +119,7 @@ def  edgeDetectionSobel(img:  np.ndarray,  thresh:  float  =  0.7)-> (np.ndarray
     ker_Sobol_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
     ker_Sobol_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
 
-    magnitude = np.sqrt(conv2D(img,ker_Sobol_x)**2 + conv2D(img,ker_Sobol_y)**2)
+    magnitude = np.sqrt(conv2D(img,np.flip(ker_Sobol_x))**2 + conv2D(img,ker_Sobol_y)**2)
     magnitude = magnitude.astype(np.float) / 255
     magnitude[magnitude > thresh] = 1   
     magnitude[magnitude < thresh] = 0
@@ -150,12 +149,37 @@ def  edgeDetectionZeroCrossingSimple(img:np.ndarray)->(np.ndarray):
     :return:  :return:  Edge  matrix """
     ker_lap = np.array([[0,1,0],[1,-4,1],[0,1,0]])
     LOG = conv2D(img, ker_lap)
-    minLoG = cv2.morphologyEx(LOG, cv2.MORPH_GRADIENT, np.ones((5,5)))
-    maxLoG = cv2.morphologyEx(LOG, cv2.MORPH_GRADIENT, np.ones((5,5)))
-    zeroCross = np.logical_or(np.logical_and(minLoG < 0,  LOG > 0), np.logical_and(maxLoG > 0, LOG < 0)).astype('int')
-    return zeroCross
+    LOG = LOG.astype(np.float) / 255
+    # return LOG
+    return Zero_crossing(LOG)
 
+def Zero_crossing(image):
+    z_c_image = np.zeros(image.shape)
+    
+    for i in range(1, image.shape[0] - 1):
+        for j in range(1, image.shape[1] - 1):
+            negative_count = 0
+            positive_count = 0
+            Thresh = 0.03
+            neighbour = [image[i+1, j-1],image[i+1, j],image[i+1, j+1],image[i, j-1],image[i, j+1],image[i-1, j-1],image[i-1, j],image[i-1, j+1]]
+            d = max(neighbour)
+            e = min(neighbour)
+            for h in neighbour:
+                if h>0:
+                    positive_count += 1
+                elif h<0:
+                    negative_count += 1
+            z_c = ((negative_count > 0) and (positive_count > 0))
+            if z_c:
+                if image[i,j]>0:
+                    z_c_image[i, j] = image[i,j] + np.abs(e)
+                elif image[i,j]<0:
+                    z_c_image[i, j] = np.abs(image[i,j]) + d
+    z_c_image[z_c_image > Thresh] = 1
+    z_c_image[z_c_image < Thresh] = 0
 
+ 
+    return z_c_image
 
 def  edgeDetectionCanny(img:  np.ndarray,  thrs_1:  float,  thrs_2:  float)-> (np.ndarray, np.ndarray): 
     """
@@ -177,7 +201,7 @@ def  edgeDetectionCanny(img:  np.ndarray,  thrs_1:  float,  thrs_2:  float)-> (n
     img_non_max = non_max_suppression(magnitude,theta)
     res, weak, strong = threshold(img_non_max,thrs_1,thrs_2)
     ans = hysteresis(res, weak, strong)
-    return ans
+    return ans , cv2.Canny(img,100,200)
 
 
 def non_max_suppression(img, D):
@@ -237,8 +261,6 @@ def threshold(img, highThreshold, lowThreshold):
     res[weak_i, weak_j] = weak
     return (res, weak, strong)
 
-
-
 def hysteresis(img, weak, strong):
     M, N = img.shape  
     for i in range(1, M-1):
@@ -264,7 +286,17 @@ def  houghCircle(img:np.ndarray,min_radius:float,max_radius:float)->list:
     :param  maxRadius:  Maximum  circle  radius
     :return: A list containing the detected circles, [(x,y,radius),(x,y,radius),...]
     """
-    edges = cv2.Canny(img, 20, 100)
-    points = np.array([p[0] for p in edgeDetectionZeroCrossingLOG(edges)])
-    image = cv2.circle(Orignal_img, (100,100), 100, (20, 30, 50), 2)
-    return points
+    #https://www.youtube.com/watch?v=-o9jNEbR5P8
+    cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
+    circles = cv2.HoughCircles(img,cv2.HOUGH_GRADIENT,1,20,
+                            param1=50,param2=30,minRadius=min_radius,maxRadius=max_radius)
+    circles = np.uint16(np.around(circles))
+    for i in circles[0,:]:
+    # draw the outer circle
+        cv2.circle(cimg,(i[0],i[1]),i[2],(0,255,0),2)
+    # draw the center of the circle
+        cv2.circle(cimg,(i[0],i[1]),2,(0,0,255),3)
+    
+    plt.imshow(cimg)
+    plt.show()
+    return "houghCircle - using Cv2 solution"

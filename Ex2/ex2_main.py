@@ -16,16 +16,12 @@ def mse(imageA, imageB):
 
 def main():
     print("ID:", myID())
-    Thresh = 0.5
-    img_path = 'tom2.jpg'
+    img_path = 'tom.jpg'
     Orignal_img = cv2.imread(img_path,0)
-    highThreshold = Orignal_img.max() * 0.2
-    lowThreshold = highThreshold * 0.03
-    singel_Thresh = 0.5
     #save the original shape of the image.
     # ---------------------------- 1 Convolution ----------------------------:
         # 1.1: Convd1D
-    print('---------------------------- 1 Convolution ----------------------------:')
+    # print('---------------------------- 1 Convolution ----------------------------:')
     print('# 1.1: Convd1D')
     kernel_1D = np.array([1,2,3])
     signal_1D = np.array([0,1,2,4,5])
@@ -57,41 +53,45 @@ def main():
     images = [der_x, der_y, magnitude, directions]
 
     for i in range(4):
-        plt.subplot(2,3,i+1),plt.imshow(images[i],'gray')
+        plt.subplot(1,4,i+1),plt.imshow(images[i],'gray')
         plt.title(titles[i])
         plt.xticks([]),plt.yticks([])
     plt.show()
 
     print('---------------------------- 2.2 Blurring: Bonus ----------------------------:')
-    CV2_blur_Img = blurImage2(Orignal_img,np.ndarray([5,5]))
-    My_blur_Img = blurImage1(Orignal_img,np.ndarray([5,5]))
-    print(My_blur_Img)
-    titles = ['CV2_blur_Img','Original_Img',]
-    images = [CV2_blur_Img, Orignal_img]
-    for i in range(2):
-        plt.subplot(1,2,i+1),plt.imshow(images[i],'gray')
+    CV2_blur_Img = blurImage2(Orignal_img,5)
+    My_blur_Img = blurImage1(Orignal_img,5)
+    titles = ['CV2_blur_Img','My_blur_Img','Original_Img']
+    images = [CV2_blur_Img,My_blur_Img,Orignal_img]
+    for i in range(3):
+        plt.subplot(1,3,i+1),plt.imshow(images[i],'gray')
         plt.title(titles[i])
         plt.xticks([]),plt.yticks([])
     plt.show()
 
     print('---------------------------- 3 Edge detection ----------------------------:')
-    Sobel_Thresh = 0.5
-    Canny_TH1 = Orignal_img.max() * 0.2
-    Canny_TL2 = highThreshold * 0.03
+    Sobel_Thresh = 0.4
+    Canny_TH1 = Orignal_img.max() * 0.15
+    Canny_TL2 = Canny_TH1 * 0.03
     My_Sobel_Img,CV2_Sobel_Img = edgeDetectionSobel(Orignal_img,Sobel_Thresh)
-    ZeroCrossing_Img = edgeDetectionZeroCrossingSimple(Orignal_img)
+    ZeroCrossingSimple_img = edgeDetectionZeroCrossingSimple(Orignal_img)
     ZeroCrossingLOG_Img = edgeDetectionZeroCrossingLOG(Orignal_img)
-    Canny_Img = edgeDetectionCanny(Orignal_img,highThreshold,lowThreshold)
-
+    
+    My_Canny_Img,Cv2_Canny_Img = edgeDetectionCanny(Orignal_img,Canny_TH1,Canny_TL2)
+    print(f'MSE Between: ZeroCrossingSimple_img, ZeroCrossingLOG_Img  = {mse(ZeroCrossingSimple_img,ZeroCrossingLOG_Img)}')
     print(f'MSE Between: My_Sobel_Img, CV2_Sobel_Img  = {mse(My_Sobel_Img,CV2_Sobel_Img)}')
-
-    titles = ['My_Sobel_Img','CV2_Sobel_Img','ZeroCrossing_Img','ZeroCrossingLOG_Img','Canny_Img']
-    images = [My_Sobel_Img, CV2_Sobel_Img,ZeroCrossing_Img,ZeroCrossingLOG_Img,Canny_Img]
-    for i in range(5):
+    
+    titles = ['My_Sobel_Img','CV2_Sobel_Img','ZeroCrossingSimple_img','ZeroCrossingLOG','My_Canny_Img','Cv2_Canny_Img']
+    images = [My_Sobel_Img, CV2_Sobel_Img,ZeroCrossingSimple_img,ZeroCrossingLOG_Img,My_Canny_Img,Cv2_Canny_Img]
+    for i in range(6):
         plt.subplot(2,3,i+1),plt.imshow(images[i],'gray')
         plt.title(titles[i])
         plt.xticks([]),plt.yticks([])
     plt.show()
-    # hough = houghCircle(Orignal_img,20,30)
+    img_path = 'coins.jpg'
+    coins = cv2.imread(img_path,0)
+    hough = houghCircle(coins,60,80)
+    print(hough)
+
 if __name__ == '__main__':
     main()
